@@ -14,6 +14,8 @@ bool WeatherSensor::begin() {
 
     dht.begin();
 
+    pinMode(RAIN_DIGITAL_PIN, INPUT);
+
     return bmpReady || ds18b20Ready;
 }
 
@@ -36,6 +38,12 @@ WeatherReading WeatherSensor::read() {
         reading.altitudeM = bmp.readAltitude(SEA_LEVEL_PRESSURE_HPA);
         reading.pressureValid = true;
     }
+
+    int rainRaw = analogRead(RAIN_ANALOG_PIN);
+    float pct = (float)(RAIN_ADC_DRY - rainRaw) / (float)(RAIN_ADC_DRY - RAIN_ADC_WET) * 100.0F;
+    reading.rainIntensityPct = constrain(pct, 0.0F, 100.0F);
+    reading.isRaining = (digitalRead(RAIN_DIGITAL_PIN) == LOW); // board pulls DO low when wet
+    reading.rainValid = true;
 
     return reading;
 }

@@ -12,9 +12,12 @@ struct WeatherReading {
     float humidityPct;
     float pressureHpa;
     float altitudeM;
+    float rainIntensityPct; // 0 = dry, 100 = fully wet
+    bool isRaining;         // digital threshold from the sensor board
     bool tempValid;
     bool humidityValid;
     bool pressureValid;
+    bool rainValid;
 };
 
 class WeatherSensor {

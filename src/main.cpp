@@ -25,6 +25,7 @@ struct HistoryPoint {
     float temperatureC;
     float humidityPct;
     float pressureHpa;
+    float rainIntensityPct;
 };
 
 HistoryPoint history[HISTORY_SIZE];
@@ -34,7 +35,7 @@ unsigned long lastHistoryMs = 0;
 
 void pushHistory(const WeatherReading &reading) {
     size_t writeIndex = (historyHead + historyCount) % HISTORY_SIZE;
-    history[writeIndex] = {millis(), reading.temperatureC, reading.humidityPct, reading.pressureHpa};
+    history[writeIndex] = {millis(), reading.temperatureC, reading.humidityPct, reading.pressureHpa, reading.rainIntensityPct};
 
     if (historyCount < HISTORY_SIZE) {
         historyCount++;
@@ -68,11 +69,14 @@ String currentReadingJson() {
     doc["temp_valid"] = latest.tempValid;
     doc["humidity_valid"] = latest.humidityValid;
     doc["pressure_valid"] = latest.pressureValid;
+    doc["rain_valid"] = latest.rainValid;
     doc["temperature_c"] = latest.temperatureC;
     doc["temperature_f"] = latest.temperatureC * 9.0F / 5.0F + 32.0F;
     doc["humidity_pct"] = latest.humidityPct;
     doc["pressure_hpa"] = latest.pressureHpa;
     doc["altitude_m"] = latest.altitudeM;
+    doc["rain_intensity_pct"] = latest.rainIntensityPct;
+    doc["is_raining"] = latest.isRaining;
     doc["uptime_ms"] = millis();
 
     String out;
@@ -91,6 +95,7 @@ String historyJson() {
         point["temperature_c"] = history[idx].temperatureC;
         point["humidity_pct"] = history[idx].humidityPct;
         point["pressure_hpa"] = history[idx].pressureHpa;
+        point["rain_intensity_pct"] = history[idx].rainIntensityPct;
     }
 
     String out;

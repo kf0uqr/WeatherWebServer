@@ -92,6 +92,10 @@
       <div class="label">Altitude</div>
       <div class="value"><span id="altitude">--</span><span class="unit">m</span></div>
     </div>
+    <div class="card">
+      <div class="label">Rain</div>
+      <div class="value"><span id="rain">--</span><span class="unit">%</span></div>
+    </div>
   </div>
 
   <canvas id="chart" width="720" height="240"></canvas>
@@ -114,15 +118,20 @@ async function pollCurrent() {
     document.getElementById('pressure').textContent = data.pressure_valid ? data.pressure_hpa.toFixed(1) : '--';
     document.getElementById('altitude').textContent = data.pressure_valid ? data.altitude_m.toFixed(0) : '--';
 
-    if (!data.temp_valid || !data.humidity_valid || !data.pressure_valid) {
+    const rainEl = document.getElementById('rain');
+    rainEl.textContent = data.rain_valid ? data.rain_intensity_pct.toFixed(0) : '--';
+    rainEl.style.color = data.rain_valid && data.is_raining ? '#38bdf8' : '';
+
+    if (!data.temp_valid || !data.humidity_valid || !data.pressure_valid || !data.rain_valid) {
       const missing = [
         !data.temp_valid && 'DS18B20',
         !data.humidity_valid && 'DHT11',
         !data.pressure_valid && 'BMP280',
+        !data.rain_valid && 'rain sensor',
       ].filter(Boolean).join(', ');
       setStatus(missing + ' not detected', false);
     } else {
-      setStatus('updated ' + new Date().toLocaleTimeString(), true);
+      setStatus((data.is_raining ? 'raining — ' : '') + 'updated ' + new Date().toLocaleTimeString(), true);
     }
   } catch (err) {
     setStatus('connection lost, retrying...', false);

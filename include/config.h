@@ -13,6 +13,19 @@
 // Digital data pin for the DHT11 humidity sensor.
 #define DHT_PIN 27
 
+// Rain drop sensor (FC-37 / YL-83 style board): analog pin for intensity,
+// digital pin for the onboard comparator's rain/no-rain threshold.
+// The analog pin must be an ADC-capable GPIO (32-39 are ADC1, safe to use
+// alongside WiFi; avoid ADC2 pins like 0/2/4/12-15/25-27 since WiFi disables them).
+#define RAIN_ANALOG_PIN 34
+#define RAIN_DIGITAL_PIN 35
+
+// Raw ADC readings (0-4095) for a bone-dry board and a fully wet board.
+// Calibrate these for your board: read raw values dry and under a few drops
+// of water, then update here. Values fall as the board gets wetter.
+#define RAIN_ADC_DRY 4095
+#define RAIN_ADC_WET 1500
+
 // How often to read the sensors, in milliseconds.
 #define SENSOR_READ_INTERVAL_MS 5000
 
