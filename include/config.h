@@ -1,13 +1,19 @@
 #pragma once
 
-// I2C pins for the BME280 (defaults match most ESP32 dev boards).
+// I2C pins for the BMP280 barometer (defaults match most ESP32 dev boards).
 #define SDA_PIN 21
 #define SCL_PIN 22
 
-// BME280 is available at 0x76 or 0x77 depending on the breakout board.
-#define BME280_ADDRESS 0x76
+// BMP280 is available at 0x76 or 0x77 depending on the breakout board.
+#define BMP280_ADDRESS 0x76
 
-// How often to read the sensor, in milliseconds.
+// OneWire data pin for the DS18B20 temperature probe.
+#define ONE_WIRE_PIN 4
+
+// Digital data pin for the DHT11 humidity sensor.
+#define DHT_PIN 27
+
+// How often to read the sensors, in milliseconds.
 #define SENSOR_READ_INTERVAL_MS 5000
 
 // How many samples to keep for the in-memory history graph.

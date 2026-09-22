@@ -1,27 +1,41 @@
 #include "weather_sensor.h"
-#include "config.h"
 #include <Wire.h>
 
 bool WeatherSensor::begin() {
     Wire.begin(SDA_PIN, SCL_PIN);
-    ready = bme.begin(BME280_ADDRESS);
-    if (!ready) {
+    bmpReady = bmp.begin(BMP280_ADDRESS);
+    if (!bmpReady) {
         // Some breakout boards ship with the sensor strapped to the other address.
-        ready = bme.begin(BME280_ADDRESS == 0x76 ? 0x77 : 0x76);
+        bmpReady = bmp.begin(BMP280_ADDRESS == 0x76 ? 0x77 : 0x76);
     }
-    return ready;
+
+    ds18b20.begin();
+    ds18b20Ready = ds18b20.getDeviceCount() > 0;
+
+    dht.begin();
+
+    return bmpReady || ds18b20Ready;
 }
 
 WeatherReading WeatherSensor::read() {
     WeatherReading reading{};
-    reading.valid = ready;
-    if (!ready) {
-        return reading;
+
+    if (ds18b20Ready) {
+        ds18b20.requestTemperatures();
+        float t = ds18b20.getTempCByIndex(0);
+        reading.tempValid = (t != DEVICE_DISCONNECTED_C);
+        reading.temperatureC = t;
     }
 
-    reading.temperatureC = bme.readTemperature();
-    reading.humidityPct = bme.readHumidity();
-    reading.pressureHpa = bme.readPressure() / 100.0F;
-    reading.altitudeM = bme.readAltitude(SEA_LEVEL_PRESSURE_HPA);
+    float h = dht.readHumidity();
+    reading.humidityValid = !isnan(h);
+    reading.humidityPct = h;
+
+    if (bmpReady) {
+        reading.pressureHpa = bmp.readPressure() / 100.0F;
+        reading.altitudeM = bmp.readAltitude(SEA_LEVEL_PRESSURE_HPA);
+        reading.pressureValid = true;
+    }
+
     return reading;
 }

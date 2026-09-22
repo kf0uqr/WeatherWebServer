@@ -108,15 +108,22 @@ async function pollCurrent() {
   try {
     const res = await fetch('/api/current');
     const data = await res.json();
-    if (!data.valid) {
-      setStatus('sensor not detected', false);
-      return;
+
+    document.getElementById('temp').textContent = data.temp_valid ? data.temperature_f.toFixed(1) : '--';
+    document.getElementById('humidity').textContent = data.humidity_valid ? data.humidity_pct.toFixed(0) : '--';
+    document.getElementById('pressure').textContent = data.pressure_valid ? data.pressure_hpa.toFixed(1) : '--';
+    document.getElementById('altitude').textContent = data.pressure_valid ? data.altitude_m.toFixed(0) : '--';
+
+    if (!data.temp_valid || !data.humidity_valid || !data.pressure_valid) {
+      const missing = [
+        !data.temp_valid && 'DS18B20',
+        !data.humidity_valid && 'DHT11',
+        !data.pressure_valid && 'BMP280',
+      ].filter(Boolean).join(', ');
+      setStatus(missing + ' not detected', false);
+    } else {
+      setStatus('updated ' + new Date().toLocaleTimeString(), true);
     }
-    document.getElementById('temp').textContent = data.temperature_f.toFixed(1);
-    document.getElementById('humidity').textContent = data.humidity_pct.toFixed(0);
-    document.getElementById('pressure').textContent = data.pressure_hpa.toFixed(1);
-    document.getElementById('altitude').textContent = data.altitude_m.toFixed(0);
-    setStatus('updated ' + new Date().toLocaleTimeString(), true);
   } catch (err) {
     setStatus('connection lost, retrying...', false);
   }

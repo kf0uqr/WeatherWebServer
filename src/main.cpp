@@ -65,7 +65,9 @@ void connectWiFi() {
 
 String currentReadingJson() {
     JsonDocument doc;
-    doc["valid"] = latest.valid;
+    doc["temp_valid"] = latest.tempValid;
+    doc["humidity_valid"] = latest.humidityValid;
+    doc["pressure_valid"] = latest.pressureValid;
     doc["temperature_c"] = latest.temperatureC;
     doc["temperature_f"] = latest.temperatureC * 9.0F / 5.0F + 32.0F;
     doc["humidity_pct"] = latest.humidityPct;
@@ -123,7 +125,7 @@ void setup() {
     }
 
     if (!sensor.begin()) {
-        Serial.println("Could not find a BME280 sensor. Check wiring and I2C address in include/config.h.");
+        Serial.println("No sensors detected. Check wiring and pins in include/config.h.");
     }
 
     connectWiFi();
