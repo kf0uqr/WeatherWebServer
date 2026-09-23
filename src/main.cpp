@@ -14,6 +14,7 @@
 
 #include "config.h"
 #include "weather_sensor.h"
+#include "influx_client.h"
 
 WeatherSensor sensor;
 AsyncWebServer server(80);
@@ -148,6 +149,54 @@ String historyJson() {
     return out;
 }
 
+struct ChartRange {
+    const char *key;
+    const char *fluxStart; // Flux range() start expression
+    const char *every;     // aggregateWindow bucket size, tuned for ~60-120 points
+};
+
+const ChartRange CHART_RANGES[] = {
+    {"1h", "-1h", "1m"},
+    {"6h", "-6h", "5m"},
+    {"12h", "-12h", "10m"},
+    {"1d", "-1d", "15m"},
+    {"1w", "-7d", "2h"},
+    {"1mo", "-30d", "8h"},
+    {"1y", "-365d", "3d"},
+    {"all", "-100y", "7d"}, // "0"/absolute epoch isn't a plain Flux duration - this reads as "since forever" in practice
+};
+
+const ChartRange &lookupChartRange(const String &key) {
+    for (const auto &r : CHART_RANGES) {
+        if (key == r.key) return r;
+    }
+    return CHART_RANGES[3]; // default: 1d
+}
+
+// Long-term history, proxied through InfluxDB so the browser never needs
+// the InfluxDB token. Each field is a separate query/array rather than one
+// merged series, since aggregateWindow buckets can land at slightly
+// different timestamps per field.
+String historyRangeJson(const String &rangeKey) {
+    const ChartRange &range = lookupChartRange(rangeKey);
+
+    JsonDocument doc;
+    doc["range"] = range.key;
+    JsonArray temp = doc["temperature"].to<JsonArray>();
+    JsonArray humidity = doc["humidity"].to<JsonArray>();
+    JsonArray pressure = doc["pressure"].to<JsonArray>();
+
+    bool ok = influxQueryField("temperature_c", range.fluxStart, range.every, temp);
+    ok = influxQueryField("humidity_pct", range.fluxStart, range.every, humidity) && ok;
+    ok = influxQueryField("pressure_hpa", range.fluxStart, range.every, pressure) && ok;
+
+    doc["ok"] = ok;
+
+    String out;
+    serializeJson(doc, out);
+    return out;
+}
+
 void setupOTA() {
     ArduinoOTA.setHostname(MDNS_HOSTNAME);
     ArduinoOTA.setPassword(OTA_PASSWORD);
@@ -184,6 +233,15 @@ void setupServer() {
 
     server.on("/api/history", HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send(200, "application/json", historyJson());
+    });
+
+    // Blocking: this makes up to 3 sequential HTTPClient calls to InfluxDB
+    // before responding, which briefly ties up the request handler. Fine
+    // for a LAN dashboard polled every 30s by at most a couple of clients;
+    // not something to hit rapidly from many clients at once.
+    server.on("/api/history/range", HTTP_GET, [](AsyncWebServerRequest *request) {
+        String rangeKey = request->hasParam("range") ? request->getParam("range")->value() : "1d";
+        request->send(200, "application/json", historyRangeJson(rangeKey));
     });
 
     server.onNotFound([](AsyncWebServerRequest *request) {
@@ -234,6 +292,7 @@ void loop() {
     if (now - lastHistoryMs >= HISTORY_SAMPLE_INTERVAL_MS) {
         lastHistoryMs = now;
         pushHistory(latest);
+        influxWrite(latest); // blocking HTTP call, bounded by its own timeout
     }
 
     if (WiFi.status() != WL_CONNECTED) {

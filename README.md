@@ -187,15 +187,15 @@ IDE will prompt for the OTA password.
   pressure/altitude from the BMP280, and rain intensity/detection from the
   rain sensor — each tracked independently so one sensor failing doesn't
   blank out the others.
-- Keeps a rolling 24-hour history in memory (sampled every 5 minutes) for
-  temperature, humidity, pressure, and rain trend charts.
+- Keeps a rolling 24-hour history in memory (sampled every 5 minutes),
+  used for the on-device forecast calculation below.
 - Serves a dashboard at `/` with live temperature, humidity, pressure,
-  altitude, rain intensity, a short-term forecast, trend charts for
-  temperature/humidity/pressure (each on its own scale, since they don't
-  share units), and a radar map, auto-refreshing every 5 seconds. Any sensor
-  that isn't detected shows `--`
-  and is called out in the status line; the status line also flags when
-  it's currently raining.
+  altitude, rain intensity, a short-term forecast, a radar map, and trend
+  charts for temperature/humidity/pressure (each on its own scale, since
+  they don't share units) with a selectable time range from 1 hour to all
+  time, auto-refreshing every 5 seconds. Any sensor that isn't detected
+  shows `--` and is called out in the status line; the status line also
+  flags when it's currently raining.
 - Computes a simple pressure-trend forecast on-device (no internet needed):
   it compares the current pressure to the reading from `FORECAST_LOOKBACK_MS`
   ago (3 hours by default) and reports whether that trend points toward
@@ -212,18 +212,68 @@ IDE will prompt for the OTA password.
     / `pressure_valid` / `rain_valid` flags per sensor, plus
     `rain_intensity_pct`, `is_raining`, `forecast`, `forecast_trend_valid`,
     and (once valid) `forecast_trend_hpa_3h`
-  - `GET /api/history` — recent history points for charting
+  - `GET /api/history` — last 24h from the in-memory buffer (used
+    internally for the forecast; not used by the dashboard's charts)
+  - `GET /api/history/range?range=1h|6h|12h|1d|1w|1mo|1y|all` — trend chart
+    data proxied from InfluxDB (see below), downsampled per range to a
+    manageable number of points
+
+## Long-term history (InfluxDB)
+
+The 24h RAM buffer above can't hold a week/month/year of history — the ESP32
+doesn't have the memory for it, and it resets on every reboot anyway. For the
+dashboard's Trends time-range selector to show anything beyond 24h, the
+firmware pushes every 5-minute sample to a self-hosted
+[InfluxDB](https://www.influxdata.com/) 2.x instance, and the dashboard's
+time range selector reads it back through the ESP32 (which proxies the
+query so your InfluxDB API token never reaches the browser).
+
+**Setup:**
+
+1. Run InfluxDB 2.x somewhere reachable from your ESP32 (a Raspberry Pi,
+   home server, or Docker container — see InfluxDB's own docs for that
+   part, it's outside the scope of this firmware).
+2. In InfluxDB, create an organization, a bucket (e.g. `weather`), and an
+   API token with read+write access to that bucket.
+3. Fill in `include/secrets.h`:
+   ```
+   #define INFLUXDB_URL "http://192.168.1.50:8086"
+   #define INFLUXDB_ORG "your-org"
+   #define INFLUXDB_BUCKET "weather"
+   #define INFLUXDB_TOKEN "your-api-token"
+   ```
+4. Flash/OTA-update the firmware. Readings start appearing in InfluxDB
+   within a few minutes (measurement `weather`, fields `temperature_c`,
+   `humidity_pct`, `pressure_hpa`, `rain_intensity_pct`, `is_raining`).
+
+**Notes:**
+
+- If InfluxDB is unreachable, sample writes just fail silently (logged over
+  serial) — the rest of the firmware keeps working normally, and the
+  dashboard's Trends section shows a "could not reach InfluxDB" notice
+  instead of breaking.
+- Each 5-minute write and each `/api/history/range` request is a *blocking*
+  HTTP call on the ESP32 (bounded by a few seconds' timeout), since this
+  firmware has no async HTTP client. Fine for a single-station LAN
+  dashboard; don't expect it to hold up under heavy concurrent load.
+- Timestamps use InfluxDB's own write-time, not an ESP32 clock — the ESP32
+  doesn't sync time via NTP, so this avoids needing that.
+- "All time" is implemented as a 100-year lookback rather than a true
+  unbounded query (Flux's `range()` wants a duration, not an open-ended
+  start) — in practice this is indistinguishable from "everything."
 
 ## Project layout
 
 ```
 include/
   config.h            Sensor pins, addresses, and timing constants
-  secrets.h.example    Template for WiFi credentials (copy to secrets.h)
+  secrets.h.example    Template for WiFi/OTA/InfluxDB credentials (copy to secrets.h)
   weather_sensor.h      Sensor wrapper interface (BMP280 + DS18B20 + DHT11 + rain)
+  influx_client.h       InfluxDB write/query interface
 src/
-  main.cpp             WiFi, web server, REST API, history buffer
+  main.cpp             WiFi, web server, REST API, history buffer, OTA
   weather_sensor.cpp    Per-sensor read logic
+  influx_client.cpp     InfluxDB line-protocol writes and Flux queries
 data/
   index.html           Dashboard served from SPIFFS
 platformio.ini          Board, framework, and library dependencies

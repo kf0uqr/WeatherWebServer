@@ -113,6 +113,33 @@
     font-size: 1.1rem;
     color: var(--muted);
   }
+  .trends-header {
+    max-width: 720px;
+    margin: 32px auto 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .trends-header h2 {
+    margin: 0;
+  }
+  #range-select {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--muted);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+  #trends-notice {
+    max-width: 720px;
+    margin: 0 auto 12px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+    min-height: 1.2em;
+  }
   #radar {
     max-width: 720px;
     margin: 0 auto;
@@ -171,7 +198,20 @@
   <h2>Radar</h2>
   <div id="radar"></div>
 
-  <h2>Trends</h2>
+  <div class="trends-header">
+    <h2>Trends</h2>
+    <select id="range-select">
+      <option value="1h">Last 1 hour</option>
+      <option value="6h">Last 6 hours</option>
+      <option value="12h">Last 12 hours</option>
+      <option value="1d" selected>Last 1 day</option>
+      <option value="1w">Last 1 week</option>
+      <option value="1mo">Last 1 month</option>
+      <option value="1y">Last 1 year</option>
+      <option value="all">All time</option>
+    </select>
+  </div>
+  <div id="trends-notice"></div>
   <div class="charts">
     <div class="chart-panel">
       <div class="chart-title">Temperature</div>
@@ -237,13 +277,15 @@ async function pollCurrent() {
 
 // Each measurement gets its own small-multiple chart with its own scale,
 // rather than overlaying series with different units on one shared axis.
+// `dataKey` selects which array the /api/history/range response supplies;
+// each point in that array is {t: <RFC3339 string>, v: <raw value>}.
 const CHART_SERIES = [
-  { canvasId: 'chart-temp', color: '#3987e5', unit: '°F', decimals: 0,
-    valueOf: p => p.temperature_c * 9 / 5 + 32 },
-  { canvasId: 'chart-humidity', color: '#d95926', unit: '%', decimals: 0,
-    valueOf: p => p.humidity_pct },
-  { canvasId: 'chart-pressure', color: '#199e70', unit: ' hPa', decimals: 1,
-    valueOf: p => p.pressure_hpa },
+  { canvasId: 'chart-temp', dataKey: 'temperature', color: '#3987e5', unit: '°F', decimals: 0,
+    valueOf: p => p.v * 9 / 5 + 32 },
+  { canvasId: 'chart-humidity', dataKey: 'humidity', color: '#d95926', unit: '%', decimals: 0,
+    valueOf: p => p.v },
+  { canvasId: 'chart-pressure', dataKey: 'pressure', color: '#199e70', unit: ' hPa', decimals: 1,
+    valueOf: p => p.v },
 ];
 
 function drawSeries(series, points) {
@@ -276,14 +318,26 @@ function drawSeries(series, points) {
   ctx.fillText(min.toFixed(series.decimals) + series.unit, 6, h - 6);
 }
 
+const rangeSelect = document.getElementById('range-select');
+const trendsNoticeEl = document.getElementById('trends-notice');
+
 async function pollHistory() {
+  const range = rangeSelect.value;
   try {
-    const res = await fetch('/api/history');
+    const res = await fetch('/api/history/range?range=' + encodeURIComponent(range));
     const data = await res.json();
-    const points = data.points || [];
-    CHART_SERIES.forEach(series => drawSeries(series, points));
+
+    CHART_SERIES.forEach(series => drawSeries(series, data[series.dataKey] || []));
+
+    if (!data.ok) {
+      trendsNoticeEl.textContent = 'Could not reach InfluxDB - showing whatever data is available.';
+    } else if (CHART_SERIES.every(series => (data[series.dataKey] || []).length === 0)) {
+      trendsNoticeEl.textContent = 'No data yet for this time range.';
+    } else {
+      trendsNoticeEl.textContent = '';
+    }
   } catch (err) {
-    // Charts just stay stale until the next successful poll.
+    trendsNoticeEl.textContent = 'Could not load trend data.';
   }
 }
 
@@ -304,6 +358,8 @@ function initRadar() {
   iframe.title = 'Radar';
   radarEl.appendChild(iframe);
 }
+
+rangeSelect.addEventListener('change', pollHistory);
 
 pollCurrent();
 pollHistory();
