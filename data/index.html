@@ -205,10 +205,6 @@
       <option value="6h">Last 6 hours</option>
       <option value="12h">Last 12 hours</option>
       <option value="1d" selected>Last 1 day</option>
-      <option value="1w">Last 1 week</option>
-      <option value="1mo">Last 1 month</option>
-      <option value="1y">Last 1 year</option>
-      <option value="all">All time</option>
     </select>
   </div>
   <div id="trends-notice"></div>
@@ -272,15 +268,13 @@ async function pollCurrent() {
 
 // Each measurement gets its own small-multiple chart with its own scale,
 // rather than overlaying series with different units on one shared axis.
-// `dataKey` selects which array the /api/history/range response supplies;
-// each point in that array is {t: <RFC3339 string>, v: <raw value>}.
 const CHART_SERIES = [
-  { canvasId: 'chart-temp', dataKey: 'temperature', color: '#3987e5', unit: '°F', decimals: 0,
-    valueOf: p => p.v * 9 / 5 + 32 },
-  { canvasId: 'chart-humidity', dataKey: 'humidity', color: '#d95926', unit: '%', decimals: 0,
-    valueOf: p => p.v },
-  { canvasId: 'chart-pressure', dataKey: 'pressure', color: '#199e70', unit: ' hPa', decimals: 1,
-    valueOf: p => p.v },
+  { canvasId: 'chart-temp', color: '#3987e5', unit: '°F', decimals: 0,
+    valueOf: p => p.temperature_c * 9 / 5 + 32 },
+  { canvasId: 'chart-humidity', color: '#d95926', unit: '%', decimals: 0,
+    valueOf: p => p.humidity_pct },
+  { canvasId: 'chart-pressure', color: '#199e70', unit: ' hPa', decimals: 1,
+    valueOf: p => p.pressure_hpa },
 ];
 
 function drawSeries(series, points) {
@@ -316,21 +310,31 @@ function drawSeries(series, points) {
 const rangeSelect = document.getElementById('range-select');
 const trendsNoticeEl = document.getElementById('trends-notice');
 
+// TEMPORARY: charts are backed by the ESP32's 24h RAM buffer only, via the
+// original /api/history endpoint - the InfluxDB-backed long-range history
+// (/api/history/range, week/month/year/all-time) is disabled for now while
+// that's debugged, but the firmware code for it is still in place to pick
+// back up later. Range options are capped at 1 day for the same reason;
+// `t` here is millis()-since-boot, not wall-clock time, so filtering is
+// done relative to the newest sample rather than by absolute timestamp.
+const RANGE_MS = { '1h': 3600000, '6h': 21600000, '12h': 43200000, '1d': 86400000 };
+
 async function pollHistory() {
   const range = rangeSelect.value;
   try {
-    const res = await fetch('/api/history/range?range=' + encodeURIComponent(range));
+    const res = await fetch('/api/history');
     const data = await res.json();
+    const allPoints = data.points || [];
 
-    CHART_SERIES.forEach(series => drawSeries(series, data[series.dataKey] || []));
-
-    if (!data.ok) {
-      trendsNoticeEl.textContent = 'Could not reach InfluxDB - showing whatever data is available.';
-    } else if (CHART_SERIES.every(series => (data[series.dataKey] || []).length === 0)) {
-      trendsNoticeEl.textContent = 'No data yet for this time range.';
-    } else {
-      trendsNoticeEl.textContent = '';
+    let points = allPoints;
+    if (allPoints.length > 0) {
+      const newestT = allPoints[allPoints.length - 1].t;
+      const windowMs = RANGE_MS[range] || RANGE_MS['1d'];
+      points = allPoints.filter(p => newestT - p.t <= windowMs);
     }
+
+    CHART_SERIES.forEach(series => drawSeries(series, points));
+    trendsNoticeEl.textContent = points.length < 2 ? 'Not enough data yet for this time range.' : '';
   } catch (err) {
     trendsNoticeEl.textContent = 'Could not load trend data.';
   }

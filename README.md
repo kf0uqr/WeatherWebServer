@@ -221,7 +221,18 @@ IDE will prompt for the OTA password.
     (currently just `station_lat`/`station_lon` for the radar map), kept
     off of `data/index.html` since that file is committed to git
 
-## Long-term history (InfluxDB)
+## Long-term history (InfluxDB) — currently disabled in the dashboard
+
+**Status:** the dashboard's Trends section is temporarily back to showing
+only the last 24h (from the ESP32's local RAM buffer), with the range
+selector capped at 1 day. The InfluxDB write path and the
+`/api/history/range` endpoint described below are still in the firmware and
+still running — they're just not wired into the dashboard UI right now
+while the InfluxDB connection is debugged (writes/queries were returning
+non-200s in testing). To pick this back up: swap `data/index.html`'s
+`pollHistory()` back to fetching `/api/history/range?range=...` instead of
+filtering the local `/api/history` buffer, and restore the longer options
+in `#range-select`.
 
 The 24h RAM buffer above can't hold a week/month/year of history — the ESP32
 doesn't have the memory for it, and it resets on every reboot anyway. For the
