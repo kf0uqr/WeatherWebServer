@@ -26,6 +26,7 @@ struct HistoryPoint {
     float humidityPct;
     float pressureHpa;
     float rainIntensityPct;
+    bool pressureValid;
 };
 
 HistoryPoint history[HISTORY_SIZE];
@@ -35,13 +36,47 @@ unsigned long lastHistoryMs = 0;
 
 void pushHistory(const WeatherReading &reading) {
     size_t writeIndex = (historyHead + historyCount) % HISTORY_SIZE;
-    history[writeIndex] = {millis(), reading.temperatureC, reading.humidityPct, reading.pressureHpa, reading.rainIntensityPct};
+    history[writeIndex] = {millis(), reading.temperatureC, reading.humidityPct, reading.pressureHpa,
+                            reading.rainIntensityPct, reading.pressureValid};
 
     if (historyCount < HISTORY_SIZE) {
         historyCount++;
     } else {
         historyHead = (historyHead + 1) % HISTORY_SIZE;
     }
+}
+
+// Samples spanning the lookback window used for the pressure-trend forecast.
+const size_t FORECAST_LOOKBACK_SAMPLES = FORECAST_LOOKBACK_MS / HISTORY_SAMPLE_INTERVAL_MS;
+
+// A simple pressure-trend heuristic, not a substitute for a real forecast:
+// it just says whether pressure has been rising or falling over the last
+// few hours, which correlates loosely with improving/worsening weather.
+const char *pressureTrendForecast(float &trendHpaOut, bool &validOut) {
+    validOut = false;
+    trendHpaOut = 0;
+
+    if (!latest.pressureValid || historyCount <= FORECAST_LOOKBACK_SAMPLES) {
+        return "Gathering data...";
+    }
+
+    size_t newestIdx = (historyHead + historyCount - 1) % HISTORY_SIZE;
+    size_t pastIdx = (historyHead + historyCount - 1 - FORECAST_LOOKBACK_SAMPLES) % HISTORY_SIZE;
+
+    if (!history[newestIdx].pressureValid || !history[pastIdx].pressureValid) {
+        return "Gathering data...";
+    }
+
+    float trend = history[newestIdx].pressureHpa - history[pastIdx].pressureHpa;
+    trendHpaOut = trend;
+    validOut = true;
+
+    if (trend <= -6.0F) return "Stormy - unsettled weather likely";
+    if (trend <= -3.6F) return "Rain likely, unsettled";
+    if (trend <= -1.6F) return "Cloudy, chance of rain";
+    if (trend < 1.6F) return "Steady - no big change expected";
+    if (trend < 3.6F) return "Improving, becoming fair";
+    return "Fair - settled weather likely";
 }
 
 void connectWiFi() {
@@ -77,6 +112,15 @@ String currentReadingJson() {
     doc["altitude_m"] = latest.altitudeM;
     doc["rain_intensity_pct"] = latest.rainIntensityPct;
     doc["is_raining"] = latest.isRaining;
+
+    float trendHpa;
+    bool trendValid;
+    doc["forecast"] = pressureTrendForecast(trendHpa, trendValid);
+    doc["forecast_trend_valid"] = trendValid;
+    if (trendValid) {
+        doc["forecast_trend_hpa_3h"] = trendHpa;
+    }
+
     doc["uptime_ms"] = millis();
 
     String out;

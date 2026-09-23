@@ -162,13 +162,26 @@ editing both trees independently will drift.
 - Keeps a rolling 24-hour history in memory (sampled every 5 minutes) for the
   temperature and rain trend data.
 - Serves a dashboard at `/` with live temperature, humidity, pressure,
-  altitude, and rain intensity, auto-refreshing every 5 seconds. Any sensor
-  that isn't detected shows `--` and is called out in the status line; the
-  status line also flags when it's currently raining.
+  altitude, rain intensity, a short-term forecast, and a radar map,
+  auto-refreshing every 5 seconds. Any sensor that isn't detected shows `--`
+  and is called out in the status line; the status line also flags when
+  it's currently raining.
+- Computes a simple pressure-trend forecast on-device (no internet needed):
+  it compares the current pressure to the reading from `FORECAST_LOOKBACK_MS`
+  ago (3 hours by default) and reports whether that trend points toward
+  improving or worsening weather. This is a rough heuristic, not a real
+  forecast model — it needs a few hours of history after boot before it has
+  enough data to say anything.
+- Embeds a live radar map in the dashboard using
+  [RainViewer](https://www.rainviewer.com/)'s free, keyless embed — this is
+  fetched directly by your browser, not the ESP32, so it needs your station's
+  coordinates set in `data/index.html` (see below) and internet access on
+  whatever device you're viewing the dashboard from.
 - Exposes JSON APIs:
   - `GET /api/current` — latest reading, with `temp_valid` / `humidity_valid`
     / `pressure_valid` / `rain_valid` flags per sensor, plus
-    `rain_intensity_pct` and `is_raining`
+    `rain_intensity_pct`, `is_raining`, `forecast`, `forecast_trend_valid`,
+    and (once valid) `forecast_trend_hpa_3h`
   - `GET /api/history` — recent history points for charting
 
 ## Project layout
@@ -196,3 +209,11 @@ platformio.ini          Board, framework, and library dependencies
 - **Swapping a sensor**: each measurement is read independently in
   `weather_sensor.cpp`, so you can swap out any one module (e.g. DHT11 for a
   DHT22) without touching the web server or dashboard.
+- **Radar location**: open `data/index.html` and set `STATION_LAT` /
+  `STATION_LON` near the top of the `<script>` block to your coordinates,
+  then re-run `pio run --target uploadfs`. Left at `0, 0` the radar section
+  shows a setup reminder instead of a map.
+- **Forecast sensitivity**: `FORECAST_LOOKBACK_MS` in `config.h` controls how
+  far back the pressure trend looks (3 hours by default). Shorter windows
+  react faster but are noisier; longer windows are smoother but slower to
+  pick up on changes.

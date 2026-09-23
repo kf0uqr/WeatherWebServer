@@ -69,6 +69,55 @@
     background: var(--card);
     border-radius: 12px;
   }
+  #forecast {
+    max-width: 720px;
+    margin: 0 auto 24px;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 16px 20px;
+    text-align: center;
+  }
+  #forecast .label {
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  #forecast .text {
+    font-size: 1.1rem;
+    margin-top: 6px;
+  }
+  #forecast .trend {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 2px;
+  }
+  h2 {
+    max-width: 720px;
+    margin: 32px auto 12px;
+    font-size: 1.1rem;
+    color: var(--muted);
+  }
+  #radar {
+    max-width: 720px;
+    margin: 0 auto;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--card);
+  }
+  #radar iframe {
+    display: block;
+    width: 100%;
+    height: 420px;
+    border: 0;
+  }
+  #radar .setup-notice {
+    padding: 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
 </style>
 </head>
 <body>
@@ -98,9 +147,23 @@
     </div>
   </div>
 
+  <div id="forecast">
+    <div class="label">Forecast</div>
+    <div class="text" id="forecast-text">--</div>
+    <div class="trend" id="forecast-trend"></div>
+  </div>
+
   <canvas id="chart" width="720" height="240"></canvas>
 
+  <h2>Radar</h2>
+  <div id="radar"></div>
+
 <script>
+// Set these to your station's coordinates to enable the radar map below
+// (get them from Google Maps: right-click your location -> copy coordinates).
+const STATION_LAT = 0;
+const STATION_LON = 0;
+
 const statusEl = document.getElementById('status');
 
 function setStatus(text, ok) {
@@ -121,6 +184,11 @@ async function pollCurrent() {
     const rainEl = document.getElementById('rain');
     rainEl.textContent = data.rain_valid ? data.rain_intensity_pct.toFixed(0) : '--';
     rainEl.style.color = data.rain_valid && data.is_raining ? '#38bdf8' : '';
+
+    document.getElementById('forecast-text').textContent = data.forecast || '--';
+    document.getElementById('forecast-trend').textContent = data.forecast_trend_valid
+      ? (data.forecast_trend_hpa_3h >= 0 ? '+' : '') + data.forecast_trend_hpa_3h.toFixed(1) + ' hPa over 3h'
+      : '';
 
     if (!data.temp_valid || !data.humidity_valid || !data.pressure_valid || !data.rain_valid) {
       const missing = [
@@ -175,8 +243,27 @@ async function pollHistory() {
   }
 }
 
+function initRadar() {
+  const radarEl = document.getElementById('radar');
+
+  if (STATION_LAT === 0 && STATION_LON === 0) {
+    radarEl.innerHTML = '<div class="setup-notice">Set STATION_LAT / STATION_LON at the top of index.html\'s script to your coordinates to show radar here.</div>';
+    return;
+  }
+
+  // RainViewer's free embeddable map, no API key required.
+  const src = 'https://www.rainviewer.com/map.html?loc=' + STATION_LAT + ',' + STATION_LON +
+    ',7&oFa=0&oC=1&oU=0&oCS=1&c=3&o=83&lm=1&layer=radar&sm=1&sn=1';
+  const iframe = document.createElement('iframe');
+  iframe.src = src;
+  iframe.loading = 'lazy';
+  iframe.title = 'Radar';
+  radarEl.appendChild(iframe);
+}
+
 pollCurrent();
 pollHistory();
+initRadar();
 setInterval(pollCurrent, 5000);
 setInterval(pollHistory, 30000);
 </script>

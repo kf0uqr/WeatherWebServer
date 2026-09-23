@@ -36,3 +36,6 @@
 // Sea-level pressure at your location, used to compute altitude.
 // Adjust to your local station pressure (hPa) for a more accurate reading.
 #define SEA_LEVEL_PRESSURE_HPA 1013.25
+
+// How far back to look when computing the pressure-trend forecast.
+#define FORECAST_LOOKBACK_MS (3UL * 60 * 60 * 1000) // 3 hours
