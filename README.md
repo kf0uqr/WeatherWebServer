@@ -205,8 +205,8 @@ IDE will prompt for the OTA password.
 - Embeds a live radar map in the dashboard using
   [RainViewer](https://www.rainviewer.com/)'s free, keyless embed — this is
   fetched directly by your browser, not the ESP32, so it needs your station's
-  coordinates set in `data/index.html` (see below) and internet access on
-  whatever device you're viewing the dashboard from.
+  coordinates set (`STATION_LAT`/`STATION_LON` in `secrets.h`, see below) and
+  internet access on whatever device you're viewing the dashboard from.
 - Exposes JSON APIs:
   - `GET /api/current` — latest reading, with `temp_valid` / `humidity_valid`
     / `pressure_valid` / `rain_valid` flags per sensor, plus
@@ -217,6 +217,9 @@ IDE will prompt for the OTA password.
   - `GET /api/history/range?range=1h|6h|12h|1d|1w|1mo|1y|all` — trend chart
     data proxied from InfluxDB (see below), downsampled per range to a
     manageable number of points
+  - `GET /api/config` — non-secret config the dashboard needs at runtime
+    (currently just `station_lat`/`station_lon` for the radar map), kept
+    off of `data/index.html` since that file is committed to git
 
 ## Long-term history (InfluxDB)
 
@@ -289,10 +292,12 @@ platformio.ini          Board, framework, and library dependencies
 - **Swapping a sensor**: each measurement is read independently in
   `weather_sensor.cpp`, so you can swap out any one module (e.g. DHT11 for a
   DHT22) without touching the web server or dashboard.
-- **Radar location**: open `data/index.html` and set `STATION_LAT` /
-  `STATION_LON` near the top of the `<script>` block to your coordinates,
-  then re-run `pio run --target uploadfs`. Left at `0, 0` the radar section
-  shows a setup reminder instead of a map.
+- **Radar location**: set `STATION_LAT` / `STATION_LON` in
+  `include/secrets.h` to your coordinates, then reflash the firmware
+  (`pio run --target upload` or the OTA equivalent) — the dashboard fetches
+  them from the device via `GET /api/config` rather than having them
+  hardcoded in `data/index.html`, since that file is committed to git. Left
+  at `0, 0` the radar section shows a setup reminder instead of a map.
 - **Forecast sensitivity**: `FORECAST_LOOKBACK_MS` in `config.h` controls how
   far back the pressure trend looks (3 hours by default). Shorter windows
   react faster but are noisier; longer windows are smoother but slower to

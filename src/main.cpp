@@ -231,6 +231,17 @@ void setupServer() {
         request->send(200, "application/json", currentReadingJson());
     });
 
+    // Public, non-secret config the dashboard needs but shouldn't hardcode
+    // in data/index.html (that file is committed to git).
+    server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request) {
+        JsonDocument doc;
+        doc["station_lat"] = STATION_LAT;
+        doc["station_lon"] = STATION_LON;
+        String out;
+        serializeJson(doc, out);
+        request->send(200, "application/json", out);
+    });
+
     server.on("/api/history", HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send(200, "application/json", historyJson());
     });

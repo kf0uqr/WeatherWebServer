@@ -228,11 +228,6 @@
   </div>
 
 <script>
-// Set these to your station's coordinates to enable the radar map below
-// (get them from Google Maps: right-click your location -> copy coordinates).
-const STATION_LAT = 0;
-const STATION_LON = 0;
-
 const statusEl = document.getElementById('status');
 
 function setStatus(text, ok) {
@@ -341,16 +336,27 @@ async function pollHistory() {
   }
 }
 
-function initRadar() {
+async function initRadar() {
   const radarEl = document.getElementById('radar');
 
-  if (STATION_LAT === 0 && STATION_LON === 0) {
-    radarEl.innerHTML = '<div class="setup-notice">Set STATION_LAT / STATION_LON at the top of index.html\'s script to your coordinates to show radar here.</div>';
+  let lat = 0, lon = 0;
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    lat = data.station_lat;
+    lon = data.station_lon;
+  } catch (err) {
+    radarEl.innerHTML = '<div class="setup-notice">Could not load station coordinates from the device.</div>';
+    return;
+  }
+
+  if (lat === 0 && lon === 0) {
+    radarEl.innerHTML = '<div class="setup-notice">Set STATION_LAT / STATION_LON in include/secrets.h to your coordinates to show radar here.</div>';
     return;
   }
 
   // RainViewer's free embeddable map, no API key required.
-  const src = 'https://www.rainviewer.com/map.html?loc=' + STATION_LAT + ',' + STATION_LON +
+  const src = 'https://www.rainviewer.com/map.html?loc=' + lat + ',' + lon +
     ',7&oFa=0&oC=1&oU=0&oCS=1&c=3&o=83&lm=1&layer=radar&sm=1&sn=1';
   const iframe = document.createElement('iframe');
   iframe.src = src;
