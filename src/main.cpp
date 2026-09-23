@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <SPIFFS.h>
@@ -147,6 +148,33 @@ String historyJson() {
     return out;
 }
 
+void setupOTA() {
+    ArduinoOTA.setHostname(MDNS_HOSTNAME);
+    ArduinoOTA.setPassword(OTA_PASSWORD);
+
+    ArduinoOTA.onStart([]() {
+        String type = (ArduinoOTA.getCommand() == U_FLASH) ? "firmware" : "filesystem";
+        Serial.println("OTA update starting: " + type);
+    });
+    ArduinoOTA.onEnd([]() {
+        Serial.println("\nOTA update complete, rebooting...");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("OTA progress: %u%%\r", (progress * 100) / total);
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("OTA error [%u]: ", error);
+        if (error == OTA_AUTH_ERROR) Serial.println("auth failed");
+        else if (error == OTA_BEGIN_ERROR) Serial.println("begin failed");
+        else if (error == OTA_CONNECT_ERROR) Serial.println("connect failed");
+        else if (error == OTA_RECEIVE_ERROR) Serial.println("receive failed");
+        else if (error == OTA_END_ERROR) Serial.println("end failed");
+    });
+
+    ArduinoOTA.begin();
+    Serial.println("OTA ready");
+}
+
 void setupServer() {
     server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
@@ -186,6 +214,7 @@ void setup() {
         Serial.println("mDNS setup failed.");
     }
 
+    setupOTA();
     setupServer();
 
     latest = sensor.read();
@@ -210,4 +239,6 @@ void loop() {
     if (WiFi.status() != WL_CONNECTED) {
         connectWiFi();
     }
+
+    ArduinoOTA.handle();
 }

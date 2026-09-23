@@ -103,6 +103,9 @@ two constants.
    pio device monitor
    ```
 
+This first flash has to happen over USB. After that, the firmware has
+WiFi OTA (over-the-air) updates built in — see below.
+
 ### Option B: Arduino IDE
 
 The Arduino IDE uses the same Arduino framework as this project, but it only
@@ -151,6 +154,31 @@ it:
 Since Arduino IDE compiles a flat copy of the source, keep the PlatformIO
 `src/`/`include/` files as the source of truth and re-copy after changes —
 editing both trees independently will drift.
+
+## Updating over WiFi (OTA)
+
+Once the device is running (flashed at least once over USB), you can push
+new firmware and dashboard updates over WiFi instead of plugging back in.
+The firmware requires a password for this (`OTA_PASSWORD` in `secrets.h`) so
+random devices on your network can't push code to it.
+
+With PlatformIO:
+
+```sh
+OTA_HOST=weather.local OTA_PASSWORD=yourpassword pio run -e esp32dev_ota -t upload
+OTA_HOST=weather.local OTA_PASSWORD=yourpassword pio run -e esp32dev_ota -t uploadfs
+```
+
+`OTA_HOST` can be the mDNS hostname (`weather.local`, or whatever you set
+`MDNS_HOSTNAME` to) or the device's IP address if mDNS resolution isn't
+working on your machine. `OTA_PASSWORD` must match the value baked into the
+firmware via `secrets.h` — set both as shell environment variables (not in
+`platformio.ini`) so the password never ends up committed to git.
+
+If you're using the Arduino IDE instead: once the board shows up under
+**Tools → Port** as a network port (it appears automatically over mDNS once
+OTA-enabled firmware is running), select it there and upload as normal — the
+IDE will prompt for the OTA password.
 
 ## What it does
 
