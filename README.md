@@ -187,11 +187,13 @@ IDE will prompt for the OTA password.
   pressure/altitude from the BMP280, and rain intensity/detection from the
   rain sensor — each tracked independently so one sensor failing doesn't
   blank out the others.
-- Keeps a rolling 24-hour history in memory (sampled every 5 minutes) for the
-  temperature and rain trend data.
+- Keeps a rolling 24-hour history in memory (sampled every 5 minutes) for
+  temperature, humidity, pressure, and rain trend charts.
 - Serves a dashboard at `/` with live temperature, humidity, pressure,
-  altitude, rain intensity, a short-term forecast, and a radar map,
-  auto-refreshing every 5 seconds. Any sensor that isn't detected shows `--`
+  altitude, rain intensity, a short-term forecast, trend charts for
+  temperature/humidity/pressure (each on its own scale, since they don't
+  share units), and a radar map, auto-refreshing every 5 seconds. Any sensor
+  that isn't detected shows `--`
   and is called out in the status line; the status line also flags when
   it's currently raining.
 - Computes a simple pressure-trend forecast on-device (no internet needed):
