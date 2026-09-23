@@ -74,6 +74,8 @@ two constants.
 
 ## Software setup
 
+### Option A: PlatformIO
+
 1. Install [PlatformIO](https://platformio.org/) (VS Code extension or CLI).
 2. Copy the secrets template and fill in your WiFi credentials:
 
@@ -100,6 +102,55 @@ two constants.
    ```sh
    pio device monitor
    ```
+
+### Option B: Arduino IDE
+
+The Arduino IDE uses the same Arduino framework as this project, but it only
+compiles files that sit directly in the sketch folder (no `src/`/`include/`
+subfolders) and the sketch's main file must share the folder's name. To use
+it:
+
+1. Install the ESP32 board package: **Tools → Board → Boards Manager**,
+   search "esp32", install the one by Espressif Systems. (If it's not
+   listed, add `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
+   under **File → Preferences → Additional Boards Manager URLs** first.)
+2. Install the libraries below via **Sketch → Include Library → Manage
+   Library** (search each name, install the listed author's version — these
+   are the same dependencies as `platformio.ini`):
+   - Adafruit BMP280 Library (Adafruit)
+   - Adafruit Unified Sensor (Adafruit)
+   - DallasTemperature (Miles Burton)
+   - OneWire (Paul Stoffregen)
+   - DHT sensor library (Adafruit)
+   - ESPAsyncWebServer (ESP32Async)
+   - AsyncTCP (ESP32Async)
+   - ArduinoJson (Benoit Blanchon)
+3. Create a sketch folder named `WeatherWebServer` and copy these files into
+   it flat (no subfolders):
+   - `src/main.cpp` → `WeatherWebServer/WeatherWebServer.ino`
+   - `src/weather_sensor.cpp` → `WeatherWebServer/weather_sensor.cpp`
+   - `include/weather_sensor.h` → `WeatherWebServer/weather_sensor.h`
+   - `include/config.h` → `WeatherWebServer/config.h`
+   - `include/secrets.h.example` → `WeatherWebServer/secrets.h`, then fill in
+     your WiFi credentials
+4. Open `WeatherWebServer.ino` in the Arduino IDE, select your board and
+   port under **Tools**, and upload.
+5. Upload the dashboard (`data/index.html`) to the ESP32's filesystem. The
+   Arduino IDE doesn't do this out of the box:
+   - **Arduino IDE 1.8.x**: install the
+     [ESP32 Sketch Data Upload](https://github.com/me-no-dev/arduino-esp32fs-plugin)
+     plugin, put `index.html` in a `data/` folder next to the `.ino`, then
+     use **Tools → ESP32 Sketch Data Upload**.
+   - **Arduino IDE 2.x**: that plugin isn't supported. Easiest path is to
+     install PlatformIO just for this one step (`pio run --target uploadfs`
+     from this repo, using its `data/` folder) — the sketch itself can still
+     be built/flashed from the Arduino IDE day-to-day.
+6. Open the serial monitor (**Tools → Serial Monitor**, 115200 baud) to find
+   the assigned IP address, or visit `http://weather.local`.
+
+Since Arduino IDE compiles a flat copy of the source, keep the PlatformIO
+`src/`/`include/` files as the source of truth and re-copy after changes —
+editing both trees independently will drift.
 
 ## What it does
 
