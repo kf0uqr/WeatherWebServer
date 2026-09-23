@@ -63,7 +63,7 @@
   }
   .charts {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: 1fr;
     gap: 16px;
     max-width: 720px;
     margin: 0 auto 32px;
@@ -168,23 +168,24 @@
     <div class="trend" id="forecast-trend"></div>
   </div>
 
+  <h2>Radar</h2>
+  <div id="radar"></div>
+
+  <h2>Trends</h2>
   <div class="charts">
     <div class="chart-panel">
       <div class="chart-title">Temperature</div>
-      <canvas id="chart-temp" width="340" height="160"></canvas>
+      <canvas id="chart-temp" width="720" height="160"></canvas>
     </div>
     <div class="chart-panel">
       <div class="chart-title">Humidity</div>
-      <canvas id="chart-humidity" width="340" height="160"></canvas>
+      <canvas id="chart-humidity" width="720" height="160"></canvas>
     </div>
     <div class="chart-panel">
       <div class="chart-title">Pressure</div>
-      <canvas id="chart-pressure" width="340" height="160"></canvas>
+      <canvas id="chart-pressure" width="720" height="160"></canvas>
     </div>
   </div>
-
-  <h2>Radar</h2>
-  <div id="radar"></div>
 
 <script>
 // Set these to your station's coordinates to enable the radar map below
