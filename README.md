@@ -19,10 +19,12 @@ sensor), and serves a live dashboard over your home WiFi.
 
 | Sensor pin        | ESP32 pin |
 |--------------------|-----------|
-| BMP280 VIN         | 3V3       |
+| BMP280 VCC         | 3V3       |
 | BMP280 GND         | GND       |
-| BMP280 SCL         | GPIO 22   |
-| BMP280 SDA         | GPIO 21   |
+| BMP280 SCK         | GPIO 22   |
+| BMP280 SDI         | GPIO 21   |
+| BMP280 SDO         | GND       |
+| BMP280 CS          | 3V3       |
 | DS18B20 VDD        | 3V3       |
 | DS18B20 GND        | GND       |
 | DS18B20 DATA       | GPIO 4    |
@@ -36,6 +38,15 @@ sensor), and serves a live dashboard over your home WiFi.
 
 The DS18B20 needs a 4.7kΩ pull-up resistor between its DATA and VDD lines
 (many breakout boards already include one).
+
+Boards with a `VCC`/`3.3V`/`GND`/`SCK`/`SDO`/`SDI`/`CS` pinout support both
+I2C and SPI — **CS** picks the mode. Tying `CS` high (to 3V3) puts it in I2C
+mode, which is what this firmware talks to (`Wire`/`Adafruit_BMP280`), so no
+code changes are needed. In that mode `SCK` and `SDI` become the I2C clock
+and data lines (`SCL`/`SDA`), and `SDO` sets the I2C address: tie it to
+`GND` for `0x76` (the default in `config.h`) or to `3V3` for `0x77`. Leave
+your board's separate `3.3V` pin (a regulator output some boards break out)
+unconnected — power the board from `VCC` only.
 
 The rain sensor board has two outputs: **AO** (analog voltage that varies
 with how wet the board is) and **DO** (digital, flips when wetness crosses
